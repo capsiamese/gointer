@@ -12,11 +12,24 @@ const (
 	EOF     = "EOF"
 	IDENT   = "IDENT"
 	INT     = "INT"
+	TRUE    = "true"
+	FALSE   = "false"
+	RETURN  = "return"
+	IF      = "if"
+	ELSE    = "else"
 
 	ASSIGN    = "="
 	PLUS      = "+"
+	MINUS     = "-"
+	BANG      = "!"
+	ASTERISK  = "*"
+	SLASH     = "/"
 	COMMA     = ","
 	SEMICOLON = ";"
+	LT        = "<"
+	GT        = ">"
+	EQ        = "=="
+	NOT_EQ    = "!="
 
 	LPAREN = "("
 	RPAREN = ")"
@@ -28,8 +41,13 @@ const (
 )
 
 var keyworkds = map[string]TokenType{
-	"fn":  FUNCTION,
-	"let": LET,
+	"fn":     FUNCTION,
+	"let":    LET,
+	"if":     IF,
+	"else":   ELSE,
+	"true":   TRUE,
+	"false":  FALSE,
+	"return": RETURN,
 }
 
 func LookupIdent(ident string) TokenType {
