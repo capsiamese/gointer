@@ -89,3 +89,28 @@ func TestReturnStatment(t *testing.T) {
 		}
 	}
 }
+
+func TestIdentifierExpression(t *testing.T) {
+	p := New(lexer.New("foobar;"))
+	program := p.ParseProgram()
+	checkParseError(t, p)
+
+	if len(program.Statments) != 1 {
+		t.Fatalf("program staments dose not contain 1 statements got=%d", len(program.Statments))
+	}
+
+	stmt, ok := program.Statments[0].(*ast.ExpressionStatment)
+	if !ok {
+		t.Fatalf("statment node not expression statment got=%T", program.Statments[0])
+	}
+	ident, ok := stmt.Expression.(*ast.Identifier)
+	if !ok {
+		t.Fatalf("exp not identifier got=%T", stmt.Expression)
+	}
+	if ident.Value != "foobar" {
+		t.Fatalf("ident value not foobar got=%s", ident.Value)
+	}
+	if ident.TokenLiteral() != "foobar" {
+		t.Fatalf("ident token literal not foobar got=%s", ident.TokenLiteral())
+	}
+}

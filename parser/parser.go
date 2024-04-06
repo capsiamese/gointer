@@ -8,18 +8,34 @@ import (
 )
 
 type Parser struct {
-	l         *lexer.Lexer
+	l *lexer.Lexer
+
 	curToken  token.Token
 	peekToken token.Token
 
 	errors []string
+
+	prefixParseFns map[token.TokenType]prefixParseFn
+	infixParseFns  map[token.TokenType]infixParseFn
 }
 
 func New(l *lexer.Lexer) *Parser {
-	p := &Parser{l: l, errors: make([]string, 0)}
+	p := &Parser{
+		l: l, errors: make([]string, 0),
+		prefixParseFns: make(map[token.TokenType]prefixParseFn),
+		infixParseFns:  make(map[token.TokenType]infixParseFn),
+	}
 	p.nextToken()
 	p.nextToken()
+	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	return p
+}
+
+func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
+	p.prefixParseFns[tokenType] = fn
+}
+func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
+	p.infixParseFns[tokenType] = fn
 }
 
 func (p *Parser) Errors() []string {
@@ -46,13 +62,40 @@ func (p *Parser) ParseProgram() *ast.Program {
 }
 
 func (p *Parser) parseStatment() ast.Statment {
+	var result ast.Statment
 	switch p.curToken.Type {
 	case token.LET:
-		return p.parseLetStatment()
+		result = p.parseLetStatment()
 	case token.RETURN:
-		return p.parseReturnStatment()
+		result = p.parseReturnStatment()
+	default:
+		result = p.parseExpressionStatment()
+	}
+	if result != nil {
+		return result
 	}
 	return nil
+}
+
+func (p *Parser) parseExpressionStatment() *ast.ExpressionStatment {
+	stmt := &ast.ExpressionStatment{Token: p.curToken}
+	stmt.Expression = p.parseExpression(LOWEST)
+	if p.peekTokenIs(token.SEMICOLON) {
+		p.nextToken()
+	}
+	return stmt
+}
+
+func (p *Parser) parseExpression(precedence int) ast.Expression {
+	prefix := p.prefixParseFns[p.curToken.Type]
+	if prefix == nil {
+		return nil
+	}
+	return prefix()
+}
+
+func (p *Parser) parseIdentifier() ast.Expression {
+	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseLetStatment() *ast.LetStatment {
@@ -112,3 +155,20 @@ func (p *Parser) parseReturnStatment() ast.Statment {
 
 	return rs
 }
+
+type (
+	prefixParseFn func() ast.Expression
+	infixParseFn  func(ast.Expression) ast.Expression
+	// sufixParseFn func(ast.Expression) ast.Exporession
+)
+
+const (
+	_ int = iota
+	LOWEST
+	EQUALS       // ==
+	LESSGRETATER // > <
+	SUM          // +
+	PRODUCT      // *
+	PREFIX       // -X !X
+	CALL         // Fn(x)
+)
