@@ -5,6 +5,7 @@ import (
 	"gointer/ast"
 	"gointer/lexer"
 	"gointer/token"
+	"strconv"
 )
 
 type Parser struct {
@@ -28,6 +29,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 	p.nextToken()
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
+	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	return p
 }
 
@@ -89,9 +93,20 @@ func (p *Parser) parseExpressionStatment() *ast.ExpressionStatment {
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	return prefix()
+}
+
+func (p *Parser) parsePrefixExpression() ast.Expression {
+	expr := &ast.PrefixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+	}
+	p.nextToken()
+	expr.Right = p.parseExpression(PREFIX)
+	return expr
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
@@ -117,6 +132,18 @@ func (p *Parser) parseLetStatment() *ast.LetStatment {
 		p.nextToken()
 	}
 	return stmt
+}
+
+func (p *Parser) parseIntegerLiteral() ast.Expression {
+	lit := &ast.IntegerLiteral{Token: p.curToken}
+	val, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+	if err != nil {
+		p.errors = append(p.errors, fmt.Sprintf("could not parse %q as integer",
+			p.curToken.Literal))
+		return nil
+	}
+	lit.Value = val
+	return lit
 }
 
 func (p *Parser) expectPeek(typ token.TokenType) bool {
@@ -154,6 +181,11 @@ func (p *Parser) parseReturnStatment() ast.Statment {
 	}
 
 	return rs
+}
+
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+	p.errors = append(p.errors,
+		fmt.Sprintf("no prefix parse function for %s found", t))
 }
 
 type (
