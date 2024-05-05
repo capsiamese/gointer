@@ -207,3 +207,65 @@ func AssertExprType[T ast.Expression](t *testing.T, e ast.Expression) T {
 	}
 	return exp
 }
+
+func TestParsingInfixExpression(t *testing.T) {
+	infixTests := []struct {
+		input    string
+		leftVal  int64
+		op       string
+		rightVal int64
+	}{
+		{"5 + 5", 5, "+", 5},
+		{"5 - 5", 5, "-", 5},
+		{"5 * 5", 5, "*", 5},
+		{"5 / 5", 5, "/", 5},
+		{"5 > 5", 5, ">", 5},
+		{"5 < 5", 5, "<", 5},
+		{"5 == 5", 5, "==", 5},
+		{"5 != 5", 5, "!=", 5},
+	}
+	for _, tt := range infixTests {
+		p := New(lexer.New(tt.input))
+		prog := p.ParseProgram()
+		checkParseError(t, p)
+		AssertStmentCount(t, prog, 1)
+		stmt := AssertStmentType[*ast.ExpressionStatment](t, prog, 0)
+		exp := AssertExprType[*ast.InfixExpression](t, stmt.Expression)
+		if !testIntegerLiteral(t, exp.Left, tt.leftVal) {
+			return
+		}
+		if exp.Operator != tt.op {
+			t.Fatalf("exp.Operator is not %s got=%s", tt.op, exp.Operator)
+		}
+		if !testIntegerLiteral(t, exp.Right, tt.rightVal) {
+			return
+		}
+	}
+}
+
+func TestOperatorPrecedenceParsing(t *testing.T) {
+	tets := []struct {
+		input    string
+		expected string
+	}{
+		{"-a * b", "((-a)*b)"},
+		{"!-a", "(!(-a))"},
+		{"a + b + c", "((a+b)+c)"},
+		{"a + b - c", "((a+b)-c)"},
+		{"a * b * c", "((a*b)*c)"},
+		{"a * b / c", "((a*b)/c)"},
+		{"a + b / c", "(a+(b/c))"},
+		{"a + b * c + d / e - f", "(((a+(b*c))+(d/e))-f)"},
+	}
+	for _, tt := range tets {
+		p := New(lexer.New(tt.input))
+		prog := p.ParseProgram()
+		checkParseError(t, p)
+		act := prog.String()
+		if act != tt.expected {
+			t.Fatalf("expected=%q, got=%q", tt.expected, act)
+		}
+	}
+}
+
+// TODO: add 2.8 helper func
